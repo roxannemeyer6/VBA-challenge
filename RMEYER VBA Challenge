@@ -1,0 +1,153 @@
+Sub eachwork()
+'Once I did all of the below, I applied the coding to make it apply to all worksheets. I originally used the version
+'we used in class, but for some reason I kept getting an error. It was fixed when I worked with Eli during office hours,
+'when he spotted that kept using "cells(x, y)" instead of "ws.cells(x, y)"
+For Each WS In Worksheets
+	 
+    	LastRow = WS.Cells(Rows.Count, 1).End(xlUp).Row
+
+'define your variables. I am using double or strings because when I used long,
+'I ran into overflow error
+        	Dim openingprice As Double
+        	Dim highprice As Double
+        	Dim closingprice As Double
+        	Dim volume As Double
+        	Dim tickerrows As Double
+        	Dim tickercolumn As Double
+        	Dim percentagechange As Double
+'create a variable that will be able to move down the ticker symbols
+        	Dim I As Double
+'start the volume at 0 and sum up the volumes of a given ticker until you hit the next ticker
+        	volume = 0
+'start the row where the first ticker symbol appears
+        	tickerrows = 2
+'define which column the ticker symbols are in
+        	tickercolumn = 1
+
+'create a summary of the tickers, and their respective yearly changes, percentage changes, and total volume
+        	WS.Cells(1, 9).Value = "Ticker"
+        	WS.Cells(1, 10).Value = "Yearly Change"
+        	WS.Cells(1, 11).Value = "Percent Change"
+        	WS.Cells(1, 12).Value = "Total Stock Volume"
+	 
+'the very first opening price is listed in cell C2 so I want to define that
+        	openingprice = WS.Cells(2, 3).Value
+    
+'have the macro go from the first ticker symbol to the last one
+            	For I = 2 To LastRow
+'whenever the ticker symbol in a given row does not match the ticker symbol in the
+'previous row i, put the symbol in column "I".
+'Then have it start calculating various metrics. It was easiest to start with yearly change
+'then go to percentage change, and finally sum up the total volume
+                    	If WS.Cells(I + 1, 1).Value <> WS.Cells(I, 1).Value Then
+                    	 
+                        	Ticker = WS.Cells(I, 1).Value
+                        	WS.Cells(tickerrows, 9).Value = Ticker
+                    	 
+                        	closingprice = WS.Cells(I, 6).Value
+                                    	 
+                        	YearlyChange = closingprice - openingprice
+                        	WS.Cells(tickerrows, 10).Value = YearlyChange
+        	 
+  'I noted that none of the opens, highs, lows, or closes are 0 but one of the volumes was 0.
+  'I believe the stock market does not allow a stock to hit a $0 worth, but just in case
+  'I added options in the case that it started and closed at $0, or to limit growth value to 100%
+  'in the case that it opened at 0 and grew any amount. Then anything in between
+  'is just the normal % change calculation. I used https://www.educba.com/vba-number-format/
+  'to figure out how to format the values in two decimal % views.
+ 
+                    	If (openingprice = 0 And closingprice = 0) Then
+                            	PercentChange = 0
+                    	ElseIf (openingprice = 0 And closingprice <> 0) Then
+                            	PercentChange = 1
+                    	Else
+                            	PercentChange = YearlyChange / openingprice
+                            	WS.Cells(tickerrows, 11).Value = PercentChange
+                            	WS.Cells(tickerrows, 11).NumberFormat = "0.00%"
+                	End If
+ 
+  'now it needs to loop around to keep calculating the volume and once it hits a different
+  'ticker, it needs to start over at 0, but paste the sum into the right hand side before moving on
+ 
+        	volume = volume + WS.Cells(I, 7).Value
+        	WS.Cells(tickerrows, 12).Value = volume
+        	 
+        	tickerrows = tickerrows + 1
+        	 
+        	openingprice = WS.Cells(I + 1, 3)
+        	 
+        	volume = 0
+            	Else
+                    	volume = volume + WS.Cells(I, 7).Value
+        	End If
+
+    	Next I
+        	 
+'Now I want to conditional format such that yearly change is red if it was negative,
+'and green if it is positive. It should stop the formatting on each worksheet
+'when it gets to the last row of the summary metrics for each ticker.
+
+            	YearlyChangeLastRow = WS.Cells(Rows.Count, 9).End(xlUp).Row
+ 
+ 'I will say the rows in the summary metrics area are rows (a moving variable j) are 2 to YearlyChangeLastRow
+            	For j = 2 To YearlyChangeLastRow
+'If the yearly change (as calculated from rows 2 to k in column 10) is positive or 0, then the cell is green
+'note: I found the number for green here: https://www.automateexcel.com/excel-formatting/color-reference-for-color-index/
+                    	If (WS.Cells(j, 10).Value > 0 Or WS.Cells(j, 10).Value = 0) Then
+                    	WS.Cells(j, 10).Interior.ColorIndex = 4
+'If the yearly change (as calculated from rows 2 to k in column 10) is negative, then the cell is red
+'note: I found the number for red here: https://www.automateexcel.com/excel-formatting/color-reference-for-color-index/
+                    	ElseIf WS.Cells(j, 10).Value < 0 Then
+                        	WS.Cells(j, 10).Interior.ColorIndex = 3
+                	End If
+'now go onto the next row, which is the next ticker
+    	Next j
+
+
+'Now I want a few more metrics, to be displayed further to the right, and I have defined these cells
+            	WS.Cells(2, 15).Value = "Greatest % Increase"
+            	WS.Cells(3, 15).Value = "Greatest % Decrease"
+            	WS.Cells(4, 15).Value = "Greatest Total Volume"
+            	WS.Cells(1, 16).Value = "Ticker"
+            	WS.Cells(1, 17).Value = "Percentage Change"
+            	WS.Cells(1, 18).Value = "Volume"
+	 
+
+ 'this new area will have rows from 2 to 4. Column 11/"K" of this page should have the
+ 'percentage change of a given stock calculated. I want to identify the above metric and put their info in the summary.
+ 'therefore, I will have excle go through each row
+        	For C = 2 To YearlyChangeLastRow
+'and in each of those rows, it find the maximum of the percentage changes (Max(WS.Range("K2:K" & YearlyChangeLastRow)))
+            	If WS.Cells(C, 11).Value = Application.WorksheetFunction.Max(WS.Range("K2:K" & YearlyChangeLastRow)) Then
+'then in column 16/"P", it will put that respective ticker symbol in cell (2,16)
+                    	WS.Cells(2, 16).Value = WS.Cells(C, 9).Value
+'and then in column 17/"Q", it will put that respective percentage change
+                    	WS.Cells(2, 17).Value = WS.Cells(C, 11).Value
+'and have it formatted as a percentage
+                    	WS.Cells(2, 17).NumberFormat = "0.00%"
+    	 
+ 'now that I have the maximum, I also want the minimum
+            	ElseIf WS.Cells(C, 11).Value = Application.WorksheetFunction.Min(WS.Range("K2:K" & YearlyChangeLastRow)) Then
+ 'then in column 16/"P", it will put that respective ticker symbol in cell (3,16)
+                    	WS.Cells(3, 16).Value = WS.Cells(C, 9).Value
+ 'and then in column 17/"Q", it will put that respective percentage change
+                    	WS.Cells(3, 17).Value = WS.Cells(C, 11).Value
+ 'and have it formatted as a percentage
+                    	WS.Cells(3, 17).NumberFormat = "0.00%"
+
+
+'and lastly, I want the greatest volume (which is in column 12/"L")
+            	ElseIf WS.Cells(C, 12).Value = Application.WorksheetFunction.Max(WS.Range("L2:L" & YearlyChangeLastRow)) Then
+ 'I have the ticker symbol for the largest volume stock in row 4, column 18/"R" because I like that percentages are not
+ 'in the same column as a count
+                    	WS.Cells(4, 16).Value = WS.Cells(C, 9).Value
+                    	WS.Cells(4, 18).Value = WS.Cells(C, 12).Value
+            	End If
+        	Next C
+	 
+	Next WS
+        	 
+        	 
+End Sub
+
+
